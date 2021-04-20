@@ -35,7 +35,7 @@ namespace IdiotBot.Services
             if (line.Count() > 1)
             {
                 var objects = JsonArrayObjects.Parse(line);
-                var index = random.Next() % objects.Count();
+                var index = random.Next(0, objects.Count());
                 var pid = objects[index].First(x => x.Key == "pid").Value;
                 var pic = await http.GetAsync(string.Format("https://pics.wikifeet.com/{0}-{1}-Feet-{2}.jpg", first, last, pid));
                 return (true, await pic.Content.ReadAsStreamAsync());
