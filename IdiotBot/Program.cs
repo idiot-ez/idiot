@@ -1,7 +1,12 @@
 ﻿using Discord;
+using Discord.Commands;
 using Discord.WebSocket;
+using IdiotBot.Services;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.IO;
+using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace IdiotBot
@@ -15,18 +20,19 @@ namespace IdiotBot
 
         public async Task MainAsync()
         {
-            client = new DiscordSocketClient();
+            using (var services = ConfigureServices())
+            {
+                var client = services.GetRequiredService<DiscordSocketClient>();
+                client.Log += LogAsync;
 
-            client.Log += LogAsync;
-            client.Ready += ReadyAsync;
-            client.MessageReceived += MessageReceivedAsync;
+                var token = File.ReadAllText("tok.txt").Replace("\r", "").Replace("\n", "");
 
-            var token = File.ReadAllText("tok.txt").Replace("\r", "").Replace("\n", "");
+                await client.LoginAsync(TokenType.Bot, token);
+                await client.StartAsync();
+                await services.GetRequiredService<CommandHandlingService>().InitializeAsync();
 
-            await client.LoginAsync(TokenType.Bot, token);
-            await client.StartAsync();
-
-            await Task.Delay(-1);
+                await Task.Delay(Timeout.Infinite);
+            }
         }
 
         private Task LogAsync(LogMessage msg)
@@ -35,23 +41,15 @@ namespace IdiotBot
             return Task.CompletedTask;
         }
 
-
-        private Task ReadyAsync()
+        private ServiceProvider ConfigureServices()
         {
-            Console.WriteLine($"{client.CurrentUser}");
-            return Task.CompletedTask;
-        }
-
-        private async Task MessageReceivedAsync(SocketMessage message)
-        {
-            if (message.Author.Id == client.CurrentUser.Id)
-                return;
-
-            if (message.Content == "!ping")
-                await message.Channel.SendMessageAsync("pong!");
-
-            if(message.Content == "!jimi")
-                await message.Channel.SendMessageAsync(":rolling_eyes:");
+            return new ServiceCollection()
+                .AddSingleton<DiscordSocketClient>()
+                .AddSingleton<CommandService>()
+                .AddSingleton<CommandHandlingService>()
+                .AddSingleton<HttpClient>()
+                .AddSingleton<WikiFeetService>()
+                .BuildServiceProvider();
         }
     }
 }
